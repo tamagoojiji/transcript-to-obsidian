@@ -113,8 +113,9 @@ PROMPT_EOF
   result=$(claude -p --model "$MODEL" < "$tmp_prompt" 2>"$tmp_stderr") || status=$?
 
   # stderr にエラーがあればログに記録（成功・失敗問わず）
+  # ※ log()はstdoutに出力するため、関数内では>&2でstderrに流す
   if [ -s "$tmp_stderr" ]; then
-    log "  stderr: $(cat "$tmp_stderr")"
+    log "  stderr: $(cat "$tmp_stderr")" >&2
   fi
 
   # 失敗時はログ出力後に return
@@ -124,9 +125,17 @@ PROMPT_EOF
 
   # 出力の先頭が --- であることを検査
   if [[ "$result" != ---* ]]; then
-    log "${YELLOW}  警告: 出力がfrontmatterで始まっていません。先頭を修正します${NC}"
+    log "  警告: 出力がfrontmatterで始まっていません。補正を試みます" >&2
     # コードフェンスで囲まれている場合は除去
     result=$(echo "$result" | sed '/^```/d')
+    # 先頭の空行を除去
+    result=$(echo "$result" | sed '/./,$!d')
+  fi
+
+  # 補正後も --- で始まらない場合は失敗扱い
+  if [[ "$result" != ---* ]]; then
+    log "  エラー: frontmatter補正後も不正な出力。保存せず失敗扱いにします" >&2
+    return 1
   fi
 
   echo "$result"
