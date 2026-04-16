@@ -292,10 +292,8 @@
     <!-- 必要なもの -->
     <h2>必要なもの</h2>
     <ul>
-      <li><strong>Claude Code</strong>（Anthropic公式CLI）</li>
-      <li><strong>Claudeの有料プラン</strong>（Pro $20 / Max $100 / Max $200 のいずれか）</li>
+      <li><strong>Claude Code</strong>（インストール済み前提）</li>
       <li><strong>Obsidian</strong>（保存先として使用）</li>
-      <li><strong>Mac または Linux</strong>（bash が動く環境）</li>
     </ul>
 
     <!-- ファイル構成 -->
@@ -311,20 +309,13 @@
     <h2>セットアップ手順</h2>
 
     <div class="step">
-      <h3><span class="step-number">1</span>Claude Code をインストール</h3>
-      <p>ターミナルで以下を実行:</p>
-      <pre><button class="copy-btn" onclick="copyCode(this)">コピー</button><code>npm install -g @anthropic-ai/claude-code</code></pre>
-      <p>初回は <code>claude</code> と入力してログイン（Anthropicアカウントに紐づけ）</p>
-    </div>
-
-    <div class="step">
-      <h3><span class="step-number">2</span>ツールをダウンロード</h3>
+      <h3><span class="step-number">1</span>ツールをダウンロード</h3>
       <pre><button class="copy-btn" onclick="copyCode(this)">コピー</button><code>git clone https://github.com/tamagoojiji/transcript-to-obsidian.git
 cd transcript-to-obsidian</code></pre>
     </div>
 
     <div class="step">
-      <h3><span class="step-number">3</span>config.sh を編集（2箇所だけ）</h3>
+      <h3><span class="step-number">2</span>config.sh を編集（2箇所だけ）</h3>
       <p>テキストエディタで <code>config.sh</code> を開いて、フォルダのパスを変更:</p>
       <pre><button class="copy-btn" onclick="copyCode(this)">コピー</button><code># 文字起こしファイルが入っているフォルダ（絶対パス）
 INPUT_DIR="$HOME/transcripts"
@@ -350,7 +341,7 @@ OUTPUT_DIR="$HOME/My-Knowledge/voicy"</code></pre>
     </div>
 
     <div class="step">
-      <h3><span class="step-number">4</span>実行</h3>
+      <h3><span class="step-number">3</span>実行</h3>
       <pre><button class="copy-btn" onclick="copyCode(this)">コピー</button><code>./process.sh</code></pre>
       <p>あとは放置するだけ。進捗がターミナルに表示されます。</p>
       <pre><code>============================================
@@ -451,9 +442,6 @@ date: 2026-04-16
 
     <h3>「Permission denied」と出る場合</h3>
     <pre><button class="copy-btn" onclick="copyCode(this)">コピー</button><code>chmod +x process.sh</code></pre>
-
-    <h3>「claude: command not found」と出る場合</h3>
-    <p>Claude Code がインストールされていません。Step 1 を確認してください。</p>
 
     <h3>レート制限で待機が多い場合</h3>
     <p><code>config.sh</code> の <code>WAIT_SECONDS</code> を大きくしてください（デフォルト: 30秒）。</p>
