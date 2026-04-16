@@ -12,6 +12,8 @@ source "$SCRIPT_DIR/config.sh"
 PROMPT_TEMPLATE="$SCRIPT_DIR/prompt-template.md"
 DONE_DIR="$INPUT_DIR/.done"
 LOG_FILE="$SCRIPT_DIR/process.log"
+TMP_DIR=$(mktemp -d)
+trap 'rm -rf "$TMP_DIR"' EXIT
 
 # 色付き出力
 GREEN='\033[0;32m'
@@ -45,19 +47,21 @@ mkdir -p "$DONE_DIR"
 # プロンプトテンプレート読み込み
 PROMPT_RULES=$(cat "$PROMPT_TEMPLATE")
 
+# 処理日（スクリプト実行時に固定）
+TODAY=$(date '+%Y-%m-%d')
+
 # 対応する拡張子
 EXTENSIONS=("txt" "srt" "vtt" "csv" "json" "md")
 
-# ファイル一覧取得
+# ファイル一覧取得（NUL区切りで安全にソート）
 FILES=()
-for ext in "${EXTENSIONS[@]}"; do
-  while IFS= read -r -d '' file; do
-    FILES+=("$file")
-  done < <(find "$INPUT_DIR" -maxdepth 1 -name "*.$ext" -type f -print0 2>/dev/null)
-done
-
-# ソート（ファイル名順）
-IFS=$'\n' FILES=($(sort <<< "${FILES[*]}")); unset IFS
+while IFS= read -r -d '' file; do
+  FILES+=("$file")
+done < <(
+  for ext in "${EXTENSIONS[@]}"; do
+    find "$INPUT_DIR" -maxdepth 1 -name "*.$ext" -type f -print0 2>/dev/null
+  done | sort -z
+)
 
 TOTAL=${#FILES[@]}
 
@@ -76,9 +80,57 @@ echo "  入力フォルダ : $INPUT_DIR"
 echo "  出力フォルダ : $OUTPUT_DIR"
 echo "  モデル       : $MODEL"
 echo "  ファイル数   : $TOTAL 件"
+echo "  処理日       : $TODAY"
 echo ""
 echo "============================================"
 echo ""
+
+# Claudeにプロンプトを送る関数（一時ファイル経由で引数長制限を回避）
+send_to_claude() {
+  local filename="$1"
+  local input_file="$2"
+  local tmp_prompt="$TMP_DIR/prompt.txt"
+  local tmp_stderr="$TMP_DIR/stderr.txt"
+
+  cat > "$tmp_prompt" << PROMPT_EOF
+以下の指示に従って、文字起こしテキストをObsidianノートに変換してください。
+
+## 指示
+${PROMPT_RULES}
+
+## 元ファイル名
+${filename}
+
+## 処理日
+${TODAY}
+
+## 文字起こしテキスト
+$(cat "$input_file")
+PROMPT_EOF
+
+  local result
+  local status=0
+  result=$(claude -p --model "$MODEL" < "$tmp_prompt" 2>"$tmp_stderr") || status=$?
+
+  # stderr にエラーがあればログに記録（成功・失敗問わず）
+  if [ -s "$tmp_stderr" ]; then
+    log "  stderr: $(cat "$tmp_stderr")"
+  fi
+
+  # 失敗時はログ出力後に return
+  if [ "$status" -ne 0 ]; then
+    return "$status"
+  fi
+
+  # 出力の先頭が --- であることを検査
+  if [[ "$result" != ---* ]]; then
+    log "${YELLOW}  警告: 出力がfrontmatterで始まっていません。先頭を修正します${NC}"
+    # コードフェンスで囲まれている場合は除去
+    result=$(echo "$result" | sed '/^```/d')
+  fi
+
+  echo "$result"
+}
 
 # 処理カウンター
 SUCCESS=0
@@ -98,21 +150,8 @@ for i in "${!FILES[@]}"; do
 
   log "${GREEN}[${NUM}/${TOTAL}] 処理中: $FILENAME${NC}"
 
-  # ファイル内容読み込み
-  CONTENT=$(cat "$FILE")
-
-  # Claude に送信
-  RESULT=$(claude -p --model "$MODEL" \
-    "以下の指示に従って、文字起こしテキストをObsidianノートに変換してください。
-
-## 指示
-${PROMPT_RULES}
-
-## 元ファイル名
-${FILENAME}
-
-## 文字起こしテキスト
-${CONTENT}" 2>&1) || {
+  # Claude に送信（一時ファイル経由）
+  RESULT=$(send_to_claude "$FILENAME" "$FILE") || {
     # レート制限等のエラー時
     log "${RED}[${NUM}/${TOTAL}] エラー: $FILENAME${NC}"
     log "  → ${WAIT_SECONDS}秒待機して再試行..."
@@ -121,17 +160,7 @@ ${CONTENT}" 2>&1) || {
     sleep "$WAIT_SECONDS"
 
     # 再試行（1回だけ）
-    RESULT=$(claude -p --model "$MODEL" \
-      "以下の指示に従って、文字起こしテキストをObsidianノートに変換してください。
-
-## 指示
-${PROMPT_RULES}
-
-## 元ファイル名
-${FILENAME}
-
-## 文字起こしテキスト
-${CONTENT}" 2>&1) || {
+    RESULT=$(send_to_claude "$FILENAME" "$FILE") || {
       log "${RED}[${NUM}/${TOTAL}] 再試行も失敗: $FILENAME → スキップ${NC}"
       continue
     }
