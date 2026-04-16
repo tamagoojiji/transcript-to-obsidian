@@ -293,30 +293,24 @@
     <h2>使い方（2ステップ）</h2>
 
     <div class="step">
-      <h3><span class="step-number">1</span>準備（コピペで実行）</h3>
-      <p>ターミナルに以下を貼り付けて Enter：</p>
-      <pre><button class="copy-btn" onclick="copyCode(this)">コピー</button><code>git clone https://github.com/tamagoojiji/transcript-to-obsidian.git && cd transcript-to-obsidian && open config.sh</code></pre>
-      <p>エディタが開くので、<strong>2箇所だけ</strong>自分のフォルダパスに書き換えて保存：</p>
-
-      <div class="config-explain">
-        <div class="config-row">
-          <span class="config-key">INPUT_DIR</span>
-          <span class="config-val">文字起こしファイルが入っているフォルダ</span>
-        </div>
-        <div class="config-row">
-          <span class="config-key">OUTPUT_DIR</span>
-          <span class="config-val">Obsidianの保存先フォルダ</span>
-        </div>
-      </div>
-
-      <div class="warning">
-        <strong>パスの確認方法:</strong> Finderでフォルダを右クリック →「パス名をコピー」で取得できます。
-      </div>
+      <h3><span class="step-number">1</span>ターミナルにコピペ</h3>
+      <pre><button class="copy-btn" onclick="copyCode(this)">コピー</button><code>git clone https://github.com/tamagoojiji/transcript-to-obsidian.git && cd transcript-to-obsidian && ./process.sh</code></pre>
     </div>
 
     <div class="step">
-      <h3><span class="step-number">2</span>実行（放置するだけ）</h3>
-      <pre><button class="copy-btn" onclick="copyCode(this)">コピー</button><code>./process.sh</code></pre>
+      <h3><span class="step-number">2</span>フォルダを指定（初回のみ）</h3>
+      <p>聞かれたら、Finderからフォルダをターミナルにドラッグ&ドロップして Enter：</p>
+      <pre><code>============================================
+ 初回セットアップ
+============================================
+
+[1/2] 文字起こしファイルが入っているフォルダ:
+  → （ここにFinderからドラッグ&ドロップ）
+
+[2/2] Obsidianの保存先フォルダ:
+  → （ここにFinderからドラッグ&ドロップ）
+
+設定を保存しました。次回からはそのまま実行できます。</code></pre>
       <p>あとは放置。全ファイルが自動でObsidianに保存されます。</p>
       <pre><code>[1/70] 処理中: episode001.txt
   → 保存完了: episode001.md

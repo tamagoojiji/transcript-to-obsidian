@@ -7,19 +7,83 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-source "$SCRIPT_DIR/config.sh"
-
-PROMPT_TEMPLATE="$SCRIPT_DIR/prompt-template.md"
-DONE_DIR="$INPUT_DIR/.done"
-LOG_FILE="$SCRIPT_DIR/process.log"
-TMP_DIR=$(mktemp -d)
-trap 'rm -rf "$TMP_DIR"' EXIT
+CONFIG_FILE="$SCRIPT_DIR/config.sh"
 
 # 色付き出力
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 RED='\033[0;31m'
 NC='\033[0m'
+
+# パス末尾のスペースと/を除去する関数
+clean_path() {
+  local p="$1"
+  # ドラッグ&ドロップ時の末尾スペース除去
+  p="${p%"${p##*[! ]}"}"
+  # 末尾の / を除去
+  p="${p%/}"
+  echo "$p"
+}
+
+# 初回セットアップ（config.shが未設定なら対話で設定）
+setup_config() {
+  echo ""
+  echo "============================================"
+  echo " 初回セットアップ"
+  echo "============================================"
+  echo ""
+  echo "フォルダを指定してください。"
+  echo "（Finderからフォルダをこの画面にドラッグ&ドロップできます）"
+  echo ""
+
+  # 入力フォルダ
+  echo -e "${GREEN}[1/2] 文字起こしファイルが入っているフォルダ:${NC}"
+  read -r -p "  → " raw_input
+  INPUT_DIR=$(clean_path "$raw_input")
+
+  if [ ! -d "$INPUT_DIR" ]; then
+    echo -e "${RED}エラー: フォルダが見つかりません: $INPUT_DIR${NC}"
+    exit 1
+  fi
+
+  echo ""
+
+  # 出力フォルダ
+  echo -e "${GREEN}[2/2] Obsidianの保存先フォルダ:${NC}"
+  read -r -p "  → " raw_output
+  OUTPUT_DIR=$(clean_path "$raw_output")
+
+  mkdir -p "$OUTPUT_DIR"
+
+  echo ""
+
+  # config.shに保存
+  cat > "$CONFIG_FILE" << CONF_EOF
+#!/bin/bash
+INPUT_DIR="$INPUT_DIR"
+OUTPUT_DIR="$OUTPUT_DIR"
+MODEL="sonnet"
+WAIT_SECONDS=30
+INTERVAL_SECONDS=5
+CONF_EOF
+
+  echo -e "${GREEN}設定を保存しました。次回からはそのまま実行できます。${NC}"
+  echo ""
+}
+
+# config.sh読み込み or 初回セットアップ
+if [ -f "$CONFIG_FILE" ] && grep -q 'INPUT_DIR=' "$CONFIG_FILE" && ! grep -q 'INPUT_DIR="\$HOME/transcripts"' "$CONFIG_FILE"; then
+  source "$CONFIG_FILE"
+else
+  setup_config
+  source "$CONFIG_FILE"
+fi
+
+PROMPT_TEMPLATE="$SCRIPT_DIR/prompt-template.md"
+DONE_DIR="$INPUT_DIR/.done"
+LOG_FILE="$SCRIPT_DIR/process.log"
+TMP_DIR=$(mktemp -d)
+trap 'rm -rf "$TMP_DIR"' EXIT
 
 log() {
   local msg="[$(date '+%Y-%m-%d %H:%M:%S')] $1"
@@ -30,13 +94,12 @@ log() {
 # 初期チェック
 if ! command -v claude &> /dev/null; then
   echo -e "${RED}エラー: Claude Code がインストールされていません${NC}"
-  echo "インストール方法: npm install -g @anthropic-ai/claude-code"
   exit 1
 fi
 
 if [ ! -d "$INPUT_DIR" ]; then
   echo -e "${RED}エラー: 入力フォルダが見つかりません: $INPUT_DIR${NC}"
-  echo "config.sh の INPUT_DIR を確認してください"
+  echo "config.sh を削除して再実行すると、フォルダを指定し直せます"
   exit 1
 fi
 
