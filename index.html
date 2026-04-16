@@ -1,0 +1,480 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>文字起こし → Obsidian 自動仕訳ツール</title>
+  <style>
+    :root {
+      --bg: #0d1117;
+      --card: #161b22;
+      --border: #30363d;
+      --text: #e6edf3;
+      --text-muted: #8b949e;
+      --accent: #58a6ff;
+      --green: #3fb950;
+      --orange: #d29922;
+      --purple: #bc8cff;
+      --code-bg: #1a1f29;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Hiragino Kaku Gothic ProN', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.7;
+      padding: 0 20px;
+    }
+
+    .container {
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 60px 0;
+    }
+
+    h1 {
+      font-size: 2rem;
+      margin-bottom: 8px;
+    }
+
+    .subtitle {
+      color: var(--text-muted);
+      font-size: 1.1rem;
+      margin-bottom: 48px;
+    }
+
+    h2 {
+      font-size: 1.3rem;
+      margin-top: 48px;
+      margin-bottom: 16px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    h3 {
+      font-size: 1.1rem;
+      margin-top: 24px;
+      margin-bottom: 8px;
+      color: var(--accent);
+    }
+
+    p, li {
+      color: var(--text);
+      margin-bottom: 12px;
+    }
+
+    ul, ol {
+      padding-left: 24px;
+      margin-bottom: 16px;
+    }
+
+    li { margin-bottom: 8px; }
+
+    .step-number {
+      display: inline-block;
+      width: 32px;
+      height: 32px;
+      background: var(--accent);
+      color: var(--bg);
+      border-radius: 50%;
+      text-align: center;
+      line-height: 32px;
+      font-weight: bold;
+      font-size: 0.9rem;
+      margin-right: 8px;
+    }
+
+    .step {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 24px;
+      margin-bottom: 16px;
+    }
+
+    .step h3 {
+      margin-top: 0;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    code {
+      background: var(--code-bg);
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-family: 'SF Mono', 'Fira Code', monospace;
+      font-size: 0.9em;
+      color: var(--green);
+    }
+
+    pre {
+      background: var(--code-bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 16px 20px;
+      overflow-x: auto;
+      margin: 12px 0 16px;
+      position: relative;
+    }
+
+    pre code {
+      background: none;
+      padding: 0;
+      font-size: 0.85rem;
+      line-height: 1.6;
+      color: var(--text);
+    }
+
+    .copy-btn {
+      position: absolute;
+      top: 8px;
+      right: 8px;
+      background: var(--border);
+      color: var(--text-muted);
+      border: none;
+      border-radius: 6px;
+      padding: 4px 10px;
+      cursor: pointer;
+      font-size: 0.75rem;
+    }
+
+    .copy-btn:hover {
+      background: var(--accent);
+      color: var(--bg);
+    }
+
+    .highlight {
+      background: rgba(88, 166, 255, 0.1);
+      border-left: 3px solid var(--accent);
+      padding: 12px 16px;
+      border-radius: 0 8px 8px 0;
+      margin: 16px 0;
+    }
+
+    .warning {
+      background: rgba(210, 153, 34, 0.1);
+      border-left: 3px solid var(--orange);
+      padding: 12px 16px;
+      border-radius: 0 8px 8px 0;
+      margin: 16px 0;
+    }
+
+    .file-tree {
+      background: var(--code-bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 16px 20px;
+      font-family: 'SF Mono', monospace;
+      font-size: 0.85rem;
+      line-height: 1.8;
+      margin: 12px 0;
+    }
+
+    .file-tree .folder { color: var(--accent); }
+    .file-tree .file { color: var(--text); }
+    .file-tree .comment { color: var(--text-muted); }
+
+    .cost-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 16px 0;
+    }
+
+    .cost-table th, .cost-table td {
+      padding: 10px 16px;
+      text-align: left;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .cost-table th {
+      color: var(--text-muted);
+      font-weight: 600;
+      font-size: 0.85rem;
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 2px 10px;
+      border-radius: 12px;
+      font-size: 0.8rem;
+      font-weight: 600;
+    }
+
+    .badge-green { background: rgba(63, 185, 80, 0.15); color: var(--green); }
+    .badge-orange { background: rgba(210, 153, 34, 0.15); color: var(--orange); }
+    .badge-purple { background: rgba(188, 140, 255, 0.15); color: var(--purple); }
+
+    .download-section {
+      text-align: center;
+      margin: 48px 0;
+    }
+
+    .download-btn {
+      display: inline-block;
+      background: var(--accent);
+      color: var(--bg);
+      text-decoration: none;
+      padding: 14px 32px;
+      border-radius: 8px;
+      font-weight: 600;
+      font-size: 1.05rem;
+      transition: opacity 0.2s;
+    }
+
+    .download-btn:hover { opacity: 0.85; }
+
+    .config-explain {
+      display: grid;
+      gap: 8px;
+      margin: 12px 0;
+    }
+
+    .config-row {
+      display: grid;
+      grid-template-columns: 180px 1fr;
+      gap: 12px;
+      padding: 8px 0;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .config-key { color: var(--green); font-family: monospace; font-size: 0.9rem; }
+    .config-val { color: var(--text-muted); font-size: 0.9rem; }
+
+    footer {
+      margin-top: 64px;
+      padding-top: 24px;
+      border-top: 1px solid var(--border);
+      text-align: center;
+      color: var(--text-muted);
+      font-size: 0.85rem;
+    }
+
+    @media (max-width: 600px) {
+      h1 { font-size: 1.5rem; }
+      .config-row { grid-template-columns: 1fr; }
+      pre { font-size: 0.8rem; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+
+    <h1>文字起こし → Obsidian 自動仕訳ツール</h1>
+    <p class="subtitle">Claude Code で文字起こしファイルを自動でObsidianノートに変換</p>
+
+    <!-- 概要 -->
+    <h2>このツールでできること</h2>
+    <ul>
+      <li>フォルダに入れた文字起こしファイルを<strong>1本ずつ自動で処理</strong></li>
+      <li>AIが内容を読み、<strong>要約・キーポイント抽出・テーマ分類</strong></li>
+      <li>Obsidianのフォルダに<strong>整理されたMarkdownノート</strong>として保存</li>
+      <li>処理済みファイルは自動でスキップ（<strong>途中再開OK</strong>）</li>
+    </ul>
+
+    <div class="highlight">
+      <strong>ポイント:</strong> フォルダ名を2箇所変えるだけ。あとは実行して放置するだけです。
+    </div>
+
+    <!-- 対応形式 -->
+    <h2>対応ファイル形式</h2>
+    <table class="cost-table">
+      <tr><th>形式</th><th>拡張子</th><th>説明</th></tr>
+      <tr><td>テキスト</td><td><code>.txt</code></td><td>プレーンテキスト</td></tr>
+      <tr><td>字幕</td><td><code>.srt</code> <code>.vtt</code></td><td>タイムスタンプ付き字幕</td></tr>
+      <tr><td>CSV</td><td><code>.csv</code></td><td>表形式の文字起こし</td></tr>
+      <tr><td>JSON</td><td><code>.json</code></td><td>API出力等</td></tr>
+      <tr><td>Markdown</td><td><code>.md</code></td><td>Markdown形式</td></tr>
+    </table>
+
+    <!-- 必要なもの -->
+    <h2>必要なもの</h2>
+    <ul>
+      <li><strong>Claude Code</strong>（Anthropic公式CLI）</li>
+      <li><strong>Claudeの有料プラン</strong>（Pro $20 / Max $100 / Max $200 のいずれか）</li>
+      <li><strong>Obsidian</strong>（保存先として使用）</li>
+      <li><strong>Mac または Linux</strong>（bash が動く環境）</li>
+    </ul>
+
+    <!-- ファイル構成 -->
+    <h2>ファイル構成</h2>
+    <div class="file-tree">
+      <span class="folder">transcript-to-obsidian/</span><br>
+      ├── <span class="file">process.sh</span> <span class="comment">← メインスクリプト（実行するファイル）</span><br>
+      ├── <span class="file">config.sh</span> <span class="comment">← 設定ファイル（ここだけ編集）</span><br>
+      └── <span class="file">prompt-template.md</span> <span class="comment">← AI への指示（カスタマイズ可）</span>
+    </div>
+
+    <!-- セットアップ手順 -->
+    <h2>セットアップ手順</h2>
+
+    <div class="step">
+      <h3><span class="step-number">1</span>Claude Code をインストール</h3>
+      <p>ターミナルで以下を実行:</p>
+      <pre><button class="copy-btn" onclick="copyCode(this)">コピー</button><code>npm install -g @anthropic-ai/claude-code</code></pre>
+      <p>初回は <code>claude</code> と入力してログイン（Anthropicアカウントに紐づけ）</p>
+    </div>
+
+    <div class="step">
+      <h3><span class="step-number">2</span>ツールをダウンロード</h3>
+      <pre><button class="copy-btn" onclick="copyCode(this)">コピー</button><code>git clone https://github.com/tamagoojiji/transcript-to-obsidian.git
+cd transcript-to-obsidian</code></pre>
+    </div>
+
+    <div class="step">
+      <h3><span class="step-number">3</span>config.sh を編集（2箇所だけ）</h3>
+      <p>テキストエディタで <code>config.sh</code> を開いて、フォルダのパスを変更:</p>
+      <pre><button class="copy-btn" onclick="copyCode(this)">コピー</button><code># 文字起こしファイルが入っているフォルダ（絶対パス）
+INPUT_DIR="$HOME/transcripts"
+
+# Obsidianの保存先フォルダ（絶対パス）
+OUTPUT_DIR="$HOME/My-Knowledge/voicy"</code></pre>
+
+      <div class="config-explain">
+        <div class="config-row">
+          <span class="config-key">INPUT_DIR</span>
+          <span class="config-val">文字起こしファイルが入っているフォルダのパス</span>
+        </div>
+        <div class="config-row">
+          <span class="config-key">OUTPUT_DIR</span>
+          <span class="config-val">ObsidianのVaultフォルダ内の保存先パス</span>
+        </div>
+      </div>
+
+      <div class="warning">
+        <strong>パスの確認方法:</strong> Finderでフォルダを右クリック →「パス名をコピー」で正確なパスが取得できます。
+        <code>$HOME</code> はホームフォルダ（<code>/Users/あなたの名前</code>）の意味です。
+      </div>
+    </div>
+
+    <div class="step">
+      <h3><span class="step-number">4</span>実行</h3>
+      <pre><button class="copy-btn" onclick="copyCode(this)">コピー</button><code>./process.sh</code></pre>
+      <p>あとは放置するだけ。進捗がターミナルに表示されます。</p>
+      <pre><code>============================================
+ 文字起こし → Obsidian 自動仕訳
+============================================
+
+  入力フォルダ : /Users/you/transcripts
+  出力フォルダ : /Users/you/My-Knowledge/voicy
+  モデル       : sonnet
+  ファイル数   : 70 件
+
+============================================
+
+[1/70] 処理中: episode001.txt
+  → 保存完了: /Users/you/My-Knowledge/voicy/episode001.md
+[2/70] 処理中: episode002.txt
+  → 保存完了: /Users/you/My-Knowledge/voicy/episode002.md
+...</code></pre>
+    </div>
+
+    <!-- 仕訳ルールのカスタマイズ -->
+    <h2>仕訳ルールをカスタマイズしたい場合</h2>
+    <p><code>prompt-template.md</code> を編集すると、AIへの指示を変更できます。</p>
+    <p>デフォルトでは以下の形式で出力されます:</p>
+    <pre><code>---
+source: episode001.txt
+date: 2026-04-16
+---
+
+# エピソードタイトル
+
+## 要約
+3〜5行の要約...
+
+## キーポイント
+- ポイント1
+- ポイント2
+- ...
+
+## 詳細メモ
+
+### テーマ1
+内容...
+
+### テーマ2
+内容...
+
+#タグ1 #タグ2 #タグ3</code></pre>
+
+    <p>例えば、以下のようなカスタマイズが可能です:</p>
+    <ul>
+      <li>出力を英語にする</li>
+      <li>特定のテーマだけ抽出する</li>
+      <li>タグの体系を指定する</li>
+      <li>名言・格言だけ抜き出す</li>
+    </ul>
+
+    <!-- コスト -->
+    <h2>コストの目安</h2>
+    <table class="cost-table">
+      <tr>
+        <th>プラン</th>
+        <th>追加コスト</th>
+        <th>処理速度</th>
+        <th>注意点</th>
+      </tr>
+      <tr>
+        <td>Max $100 <span class="badge badge-green">おすすめ</span></td>
+        <td>$0（定額内）</td>
+        <td>70本: 約1〜2時間</td>
+        <td>レート制限あり（自動待機）</td>
+      </tr>
+      <tr>
+        <td>Pro $20</td>
+        <td>$0（定額内）</td>
+        <td>70本: 約2〜4時間</td>
+        <td>レート制限が厳しめ</td>
+      </tr>
+      <tr>
+        <td>API従量課金</td>
+        <td>約$15（Sonnet）</td>
+        <td>70本: 約40分</td>
+        <td>レート制限ほぼなし</td>
+      </tr>
+    </table>
+
+    <div class="highlight">
+      <strong>モデルについて:</strong> デフォルトは <code>sonnet</code>（高速・低コスト）です。
+      文字起こしの仕訳・要約にはSonnetで十分な品質が得られます。
+      より高度な分析が必要な場合は <code>config.sh</code> で <code>opus</code> に変更できます。
+    </div>
+
+    <!-- トラブルシューティング -->
+    <h2>よくある質問</h2>
+
+    <h3>途中で止まった場合は？</h3>
+    <p>もう一度 <code>./process.sh</code> を実行するだけでOK。処理済みファイルは自動でスキップされます。</p>
+
+    <h3>「Permission denied」と出る場合</h3>
+    <pre><button class="copy-btn" onclick="copyCode(this)">コピー</button><code>chmod +x process.sh</code></pre>
+
+    <h3>「claude: command not found」と出る場合</h3>
+    <p>Claude Code がインストールされていません。Step 1 を確認してください。</p>
+
+    <h3>レート制限で待機が多い場合</h3>
+    <p><code>config.sh</code> の <code>WAIT_SECONDS</code> を大きくしてください（デフォルト: 30秒）。</p>
+
+    <h3>仕訳の精度を上げたい場合</h3>
+    <p><code>prompt-template.md</code> に具体的な指示を追加してください。
+    例: 「ビジネス/マインドセット/習慣 の3カテゴリに分類」など。</p>
+
+    <footer>
+      <p>Claude Code + Obsidian で文字起こしを自動整理</p>
+    </footer>
+  </div>
+
+  <script>
+    function copyCode(btn) {
+      const code = btn.parentElement.querySelector('code').textContent;
+      navigator.clipboard.writeText(code).then(() => {
+        btn.textContent = 'コピー済み';
+        setTimeout(() => { btn.textContent = 'コピー'; }, 2000);
+      });
+    }
+  </script>
+</body>
+</html>
